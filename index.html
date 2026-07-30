@@ -26,7 +26,7 @@
 </div>
 
 <header id="bar">
-  <div id="brand" class="card">Relief <small>hills, honestly steep</small></div>
+  <div id="brand" class="card"><span id="brandTitle">Relief</span> <small>hills, honestly steep</small></div>
 
   <div id="modes" class="card">
     <button id="btn2d" class="on" title="2D relief map (key: 1)">2D map</button>
@@ -123,8 +123,9 @@
     <h3>3D extent</h3>
     <div class="slider">
       <div class="lab"><span>Area across</span><b id="extentVal">12 km</b></div>
-      <input id="extent" type="range" min="4" max="60" step="1" value="12">
-      <div class="hint">Smaller is sharper — the DEM detail is fixed per tile.</div>
+      <input id="extent" type="range" min="1" max="60" step="1" value="12">
+      <div class="hint">Shrink toward 1 km to reach the DEM's finest detail; camera zoom
+        alone won't sharpen the mesh, only this will.</div>
     </div>
     <div class="btnrow"><button class="act" id="rebuild3d">Rebuild here</button></div>
     <div id="panel-3d-extra"></div>
