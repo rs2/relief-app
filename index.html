@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Relief — exaggerated hills for cyclists</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230b1017'/><path d='M2 26 L11 10 L17 19 L21 13 L30 26 Z' fill='%234fd1c5'/><path d='M11 10 L14.2 15.7 L11 17 L7.8 15.7 Z' fill='%23e6edf6'/></svg>">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/map2d.css">
+<link rel="stylesheet" href="css/view3d.css">
+<link rel="stylesheet" href="css/profile.css">
+<script src="vendor/leaflet/leaflet.js"></script>
+<script type="importmap">
+{"imports": {
+  "three": "./vendor/three/three.module.js",
+  "three/addons/controls/OrbitControls.js": "./vendor/three/controls/OrbitControls.js"
+}}
+</script>
+</head>
+<body class="mode-2d">
+
+<div id="stage">
+  <div id="map2d"></div>
+  <div id="view3d"></div>
+</div>
+
+<header id="bar">
+  <div id="brand" class="card">Relief <small>hills, honestly steep</small></div>
+
+  <div id="modes" class="card">
+    <button id="btn2d" class="on" title="2D relief map (key: 1)">2D map</button>
+    <button id="btn3d" title="3D terrain (key: 2)">3D view</button>
+  </div>
+
+  <div id="searchWrap" class="card" style="position:relative">
+    <input id="search" type="search" placeholder="Find a place…" autocomplete="off" spellcheck="false">
+    <button id="searchGo" title="Search">⌕</button>
+    <button id="locate" class="iconbtn" title="Go to my location">◎</button>
+    <div id="results" class="card"></div>
+  </div>
+</header>
+
+<aside id="panel" class="card">
+  <div id="panelHead">
+    <h2>Controls</h2>
+    <button id="panelToggle" class="iconbtn" title="Collapse panel">−</button>
+  </div>
+
+  <div class="group">
+    <h3 id="exTitle">Vertical exaggeration</h3>
+    <div class="slider">
+      <div class="lab"><span id="exLabel">Hillshade relief</span><b id="exVal">6.0×</b></div>
+      <input id="exSlider" type="range" min="1" max="25" step="0.5" value="6">
+      <div class="hint" id="exHint">Real-world steepness is 1×. Crank it until the hills read.</div>
+    </div>
+    <div class="btnrow" style="margin-top:6px">
+      <button class="act" data-ex="1">1×</button>
+      <button class="act" data-ex="4">4×</button>
+      <button class="act" data-ex="8">8×</button>
+      <button class="act" data-ex="16">16×</button>
+    </div>
+  </div>
+
+  <div class="group only2d">
+    <h3>Relief layers</h3>
+    <div class="rows">
+      <label class="row"><input type="checkbox" id="lyHillshade" checked>
+        <span>Hillshade</span><span class="key">H</span></label>
+      <label class="row"><input type="checkbox" id="lyMulti">
+        <span>Soft multi-light</span><span class="key">M</span></label>
+      <label class="row"><input type="checkbox" id="lyGradient" checked>
+        <span>Gradient bands</span><span class="key">G</span></label>
+      <label class="row"><input type="checkbox" id="lyHypso">
+        <span>Elevation tint</span><span class="key">E</span></label>
+      <label class="row"><input type="checkbox" id="lyContours">
+        <span>Contours</span><span class="key">C</span></label>
+    </div>
+    <div id="panel-2d-extra"></div>
+  </div>
+
+  <div class="group" id="legendGroup">
+    <h3>Gradient — how it feels</h3>
+    <div id="legend"></div>
+  </div>
+
+  <div class="group">
+    <h3>Basemap</h3>
+    <select id="basemap">
+      <option value="light">Carto light</option>
+      <option value="osm">OpenStreetMap</option>
+      <option value="topo">OpenTopoMap</option>
+      <option value="sat">Satellite</option>
+      <option value="dark">Carto dark</option>
+    </select>
+    <div class="slider" style="margin-top:10px">
+      <div class="lab"><span>Sun direction</span><b id="sunAzVal">315°</b></div>
+      <input id="sunAz" type="range" min="0" max="359" step="5" value="315">
+      <div class="hint">NW light is the cartographic convention — hills look raised, not sunken.</div>
+    </div>
+    <div class="slider">
+      <div class="lab"><span>Sun height</span><b id="sunAltVal">45°</b></div>
+      <input id="sunAlt" type="range" min="5" max="85" step="1" value="45">
+    </div>
+  </div>
+
+  <div class="group only3d">
+    <h3>3D extent</h3>
+    <div class="slider">
+      <div class="lab"><span>Area across</span><b id="extentVal">12 km</b></div>
+      <input id="extent" type="range" min="4" max="60" step="1" value="12">
+      <div class="hint">Smaller is sharper — the DEM detail is fixed per tile.</div>
+    </div>
+    <div class="btnrow"><button class="act" id="rebuild3d">Rebuild here</button></div>
+    <div id="panel-3d-extra"></div>
+  </div>
+
+  <div class="group only2d">
+    <h3>Route profile</h3>
+    <div class="btnrow">
+      <button class="act" id="drawProfile">Draw route</button>
+      <button class="act" id="clearProfile">Clear</button>
+    </div>
+    <div class="hint" style="margin-top:6px">Click along a road, double-click to finish. Gives
+      ascent and the steepest sustained 100&nbsp;m.</div>
+  </div>
+
+  <div class="group">
+    <h3>Misc</h3>
+    <div class="rows">
+      <label class="row"><input type="checkbox" id="unitsImperial">
+        <span>Feet &amp; miles</span></label>
+    </div>
+    <div class="btnrow" style="margin-top:6px">
+      <button class="act" id="goHome" title="Back to the saved home spot">Home</button>
+      <button class="act" id="setHome" title="Save this view as home">Set home</button>
+    </div>
+  </div>
+</aside>
+
+<section id="profileDock" class="card">
+  <header>
+    <h3>Elevation profile</h3>
+    <button class="iconbtn sp" id="profileClose" title="Close">×</button>
+  </header>
+  <div id="panel-profile"></div>
+</section>
+
+<div id="readout"></div>
+<div id="status"></div>
+
+<div id="fatal"><div class="card">
+  <h3>Something failed to load</h3>
+  <p id="fatalMsg"></p>
+  <p>Serve the folder with <code>node serve.js</code> and open the printed URL —
+     opening <code>index.html</code> straight off disk will not work, because ES modules
+     and DEM decoding both need a real HTTP origin.</p>
+</div></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

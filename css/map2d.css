@@ -1,0 +1,35 @@
+/* 2D relief map — extras only. The map itself is styled by app.css / leaflet.css. */
+
+.m2d-extra {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 9px;
+  display: grid;
+  gap: 7px;
+}
+
+/* label + control on one line, e.g. the contour interval picker */
+.m2d-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.m2d-line label { color: var(--fg); white-space: nowrap; }
+.m2d-line select { width: auto; flex: 1; padding: 5px 7px; font-size: 12px; }
+
+/* secondary text inside the hover readout */
+.m2d-dim { color: var(--dim); }
+
+/* the relief canvas must not be dragged as an image, and should scale smoothly
+   when Leaflet stretches tiles mid-zoom */
+.leaflet-tile-pane canvas { -webkit-user-drag: none; user-select: none; }
+
+/* Leaflet's zoom-animation briefly overlays two tile layers; keeping the relief
+   layer from fading in avoids a visible flash of unshaded basemap */
+.leaflet-fade-anim .leaflet-tile { will-change: opacity; }
+
+/* crosshair while the profile tool is armed is set by profile.css; here we only
+   make sure a plain map keeps the grab cursor */
+.leaflet-container.leaflet-grab { cursor: grab; }
+.leaflet-container.leaflet-dragging { cursor: grabbing; }

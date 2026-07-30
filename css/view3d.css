@@ -1,0 +1,101 @@
+/* css/view3d.css — chrome for the 3D terrain mode (CONTRACT §5).
+   Everything here lives inside #view3d or #panel-3d-extra, and leans on the
+   shell's custom properties so the two modes look like one app. */
+
+#view3d { position: absolute; inset: 0; overflow: hidden; }
+
+/* The shell tags 3D-only controls with .only3d but leaves the hiding to the
+   modes themselves, so the extent slider does not sit there confusing people
+   while the 2D map is up. */
+body.mode-2d .only3d { display: none; }
+
+/* The 2D hover readout has nothing to say about a 3D scene, and it would float
+   over the terrain if the map left it open on the way out. */
+body.mode-3d #readout { display: none; }
+
+/* ---------- readout HUD: elevation range, exaggeration, compass ---------- */
+.v3d-hud {
+  position: absolute; top: 58px; left: 12px; z-index: 12;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 12px 9px 10px;
+  background: var(--panel, #141b26e6);
+  border: 1px solid var(--line, #2a3746);
+  border-radius: var(--radius, 10px);
+  box-shadow: var(--shadow, 0 6px 24px #0009);
+  backdrop-filter: blur(10px);
+  pointer-events: none;                 /* never steal an orbit drag */
+  user-select: none;
+}
+
+.v3d-rose { flex: none; width: 38px; height: 38px; margin-top: 1px; }
+.v3d-rose svg {
+  width: 38px; height: 38px; display: block;
+  transform-origin: 50% 50%;
+  transition: transform .08s linear;
+}
+.v3d-rose .ring { fill: #0b1017a8; stroke: var(--line, #2a3746); stroke-width: 1.2; }
+.v3d-rose .nn { fill: #ff7b6b; }
+.v3d-rose .ss { fill: #7f8fa3; }
+
+.v3d-stats {
+  margin: 0; display: grid; grid-template-columns: auto auto; gap: 1px 10px;
+  font: 11px/1.35 var(--mono, ui-monospace, Consolas, monospace);
+}
+.v3d-stats dt {
+  color: var(--dim, #8b9bb0); text-transform: uppercase;
+  letter-spacing: .06em; font-size: 9.5px; align-self: center;
+}
+.v3d-stats dd { margin: 0; color: var(--fg, #e6edf6); text-align: right; white-space: nowrap; }
+.v3d-stats dd[data-k="ex"] { color: var(--accent, #4fd1c5); font-weight: 600; }
+
+/* ---------- overlay: loading, and the graceful failure messages ---------- */
+.v3d-overlay {
+  position: absolute; inset: 0; z-index: 14; display: none;
+  place-items: center; padding: 24px;
+  background: radial-gradient(120% 90% at 50% 40%, #0b1017a0, #0b1017e0);
+}
+.v3d-overlay.on { display: grid; }
+
+.v3d-msg {
+  max-width: 380px; padding: 16px 18px; text-align: center;
+  background: var(--panel-solid, #141b26);
+  border: 1px solid var(--line, #2a3746);
+  border-radius: var(--radius, 10px);
+  box-shadow: var(--shadow, 0 6px 24px #0009);
+}
+.v3d-msg h3 { margin: 0 0 6px; font-size: 13px; color: var(--accent-warm, #ffb454); }
+.v3d-msg p { margin: 0; font-size: 12px; color: var(--dim, #8b9bb0); }
+.v3d-msg button.act { margin-top: 12px; width: 100%; }
+
+/* busy state is deliberately quiet — a slab takes a second, not a minute */
+.v3d-msg.busy {
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  background: var(--panel, #141b26e6); backdrop-filter: blur(8px);
+}
+.v3d-msg.busy p { font: 11.5px var(--mono, ui-monospace, Consolas, monospace); }
+.v3d-spin {
+  flex: none; width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid var(--line, #2a3746);
+  border-top-color: var(--accent, #4fd1c5);
+  animation: v3d-spin .7s linear infinite;
+}
+@keyframes v3d-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .v3d-spin { animation-duration: 2.4s; }
+  .v3d-rose svg { transition: none; }
+}
+
+/* ---------- panel extras ---------- */
+#panel-3d-extra { margin-top: 10px; }
+.v3d-extra .v3d-sub {
+  font-size: 10px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--dim, #8b9bb0); margin: 0 0 6px;
+}
+
+/* ---------- small screens: the panel becomes a bottom sheet, so the HUD
+   moves to where the shell puts its own readout ---------- */
+@media (max-width: 720px) {
+  .v3d-hud { top: 112px; padding: 7px 10px 7px 8px; gap: 8px; }
+  .v3d-rose, .v3d-rose svg { width: 32px; height: 32px; }
+  .v3d-stats { font-size: 10.5px; }
+}
