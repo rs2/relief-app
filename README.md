@@ -14,12 +14,11 @@ is backed by Environment Agency 2 m LiDAR, so lanes, embankments and cuttings sh
 
 ## Running it
 
-```
-cd relief-app
-node serve.js
-```
+1. `cd relief-app`
+2. `node serve.js 8099`
+3. Open http://localhost:8099
 
-Then open <http://localhost:8099>. No npm install, no build step — Leaflet and three.js
+No npm install, no build step — Leaflet and three.js
 are vendored in `vendor/`, and everything else is plain ES modules.
 
 Opening `index.html` straight off disk will *not* work: ES modules and canvas pixel
@@ -42,6 +41,25 @@ elevation at 1×. If it says 11%, it is 11%.
 
 For lowland England, 6–10× in 2D is the sweet spot; at 1× South London looks like a
 table, which is exactly the problem this app exists to fix.
+
+## Map type
+
+In 2D, the **Map type** control switches between three underlying maps:
+
+- **None** — relief only, no tiles fetched at all.
+- **Roads** — OpenStreetMap, Carto (light/dark) or OpenTopoMap, picked from the *Style*
+  dropdown.
+- **Satellite** — Esri World Imagery.
+
+For Roads and Satellite, the **Relief mix** slider crossfades between the plain map (0%)
+and relief alone (100%) — the same control that used to be called "Relief opacity."
+Nothing is faked to make this work: the relief tile is emitted as a partially
+transparent RGBA image whose alpha is chosen so the browser's own compositing
+reproduces a true multiply blend over whatever is underneath, so at any mix level roads
+and place names stay legible right through the shading.
+
+"None" is 2D-only. The 3D view always drapes a real map (Roads or Satellite, following
+the same Style choice) since an untextured terrain slab wasn't part of the brief.
 
 ## Controls
 

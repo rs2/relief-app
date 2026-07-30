@@ -260,7 +260,14 @@ state = {
   lon, lat, zoom,            // shared ground position (2D drives it, 3D reads it)
   ex2d,                      // hillshade z-factor, 1..25
   ex3d,                      // 3D vertical exaggeration, 1..15
-  basemap,                   // 'osm' | 'light' | 'dark' | 'sat' | 'topo'
+  basemap,                   // resolved: 'none' | 'osm' | 'light' | 'dark' | 'sat' | 'topo'
+                              // — this is what setOptions({basemap}) actually receives;
+                              // 'none' is 2D-only, see mapType below
+  mapType,                   // 'none' | 'roads' | 'sat' — drives the shell's Map type UI;
+                              // basemap = mapType==='none' ? 'none' : mapType==='sat' ? 'sat' : roadsStyle
+  roadsStyle,                // 'osm' | 'light' | 'dark' | 'topo' — provider when mapType is 'roads',
+                              // and always what 3D drapes (3D never receives 'none')
+  reliefMix,                 // 0..1 — 2D's basemap/relief crossfade (setOptions({reliefOpacity}))
   layers: {hypso, hillshade, gradient, contours},   // booleans
   sunAz, sunAlt,             // degrees
   extentKm,                  // 3D slab width
@@ -268,9 +275,13 @@ state = {
 }
 ```
 
-- `app.js` owns the panel, both sliders, basemap/layer toggles, search (Nominatim), geolocate,
-  mode switching, URL-hash + localStorage persistence. Modules receive changes through
-  `setOptions()` / `setExaggeration()` and report movement through `onStateChange()`.
+- `app.js` owns the panel, both sliders, the Map type / Style / Relief mix controls,
+  layer toggles, search (Nominatim), geolocate, mode switching, URL-hash + localStorage
+  persistence. Modules receive changes through `setOptions()` / `setExaggeration()` and
+  report movement through `onStateChange()`. `setOptions({reliefOpacity})` on the 2D
+  module (§4) is the shell-owned crossfade — it used to be that module's own "Relief
+  opacity" slider inside `#panel-2d-extra`; the control moved to the shell, the API
+  (`o.reliefOpacity`, 0..1) did not change.
 - Global status line: **`window.reliefStatus(msg)`** — always available, safe to call any time.
 - DOM ids you may rely on: `#map2d`, `#view3d`, `#panel-2d-extra`, `#panel-3d-extra`,
   `#panel-profile`, `#readout`, `#status`.

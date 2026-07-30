@@ -31,6 +31,9 @@ const BUDGET = 11;             // ms of shading per animation frame, so dragging
 const MIN_SPAN = 20;           // m — floor on the hypsometric range, or flat ground goes rainbow
 
 const BASEMAPS = {
+  // no tile source at all — relief renders straight over the app's dark background.
+  // dark:true so contours/labels pick light ink, matching that backdrop.
+  none:  {path: null,   maxZoom: 19, dark: true,  direct: null, attr: ''},
   osm:   {path: 'osm',   maxZoom: 19, dark: false,
           direct: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           attr: '&copy; OpenStreetMap contributors'},
@@ -475,6 +478,10 @@ export function create2D({container, state = {}, onStateChange} = {}) {
   L.control.zoom({position: 'topleft'}).addTo(map);
 
   function buildBase() {
+    if (o.basemap === 'none') {
+      if (base) { map.removeLayer(base); base = null; }
+      return;
+    }
     const src = BASEMAPS[o.basemap] || BASEMAPS.light;
     const retina = !!(o.hiRes && L.Browser.retina);
     const url = useDirect ? src.direct : `/tile/${src.path}/{z}/{x}/{y}`;
@@ -633,10 +640,6 @@ export function create2D({container, state = {}, onStateChange} = {}) {
     host.innerHTML = `
       <div class="m2d-extra">
         <div class="slider">
-          <div class="lab"><span>Relief opacity</span><b id="m2dOpVal">100%</b></div>
-          <input id="m2dOp" type="range" min="20" max="100" step="5" value="100">
-        </div>
-        <div class="slider">
           <div class="lab"><span>Band strength</span><b id="m2dGsVal">1.0×</b></div>
           <input id="m2dGs" type="range" min="20" max="150" step="10" value="100">
         </div>
@@ -653,12 +656,8 @@ export function create2D({container, state = {}, onStateChange} = {}) {
     const $ = (id) => document.getElementById(id);
     const fill = (el) => el.style.setProperty('--pct',
       `${((el.value - el.min) / (el.max - el.min)) * 100}%`);
-    const op = $('m2dOp'), gs = $('m2dGs'), iv = $('m2dIv'), hi = $('m2dHi');
-    fill(op); fill(gs);
-    op.addEventListener('input', () => {
-      fill(op); $('m2dOpVal').textContent = `${op.value}%`;
-      api.setOptions({reliefOpacity: +op.value / 100});
-    });
+    const gs = $('m2dGs'), iv = $('m2dIv'), hi = $('m2dHi');
+    fill(gs);
     gs.addEventListener('input', () => {
       fill(gs); $('m2dGsVal').textContent = `${(+gs.value / 100).toFixed(1)}×`;
       api.setOptions({gradientStrength: +gs.value / 100});

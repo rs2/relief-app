@@ -85,14 +85,29 @@
   </div>
 
   <div class="group">
-    <h3>Basemap</h3>
-    <select id="basemap">
-      <option value="light">Carto light</option>
-      <option value="osm">OpenStreetMap</option>
-      <option value="topo">OpenTopoMap</option>
-      <option value="sat">Satellite</option>
-      <option value="dark">Carto dark</option>
-    </select>
+    <h3>Map type</h3>
+    <div class="btnrow" id="mapType">
+      <button class="act" data-type="none" title="Relief only, no map underneath">None</button>
+      <button class="act on" data-type="roads" title="Road map, blended with relief">Roads</button>
+      <button class="act" data-type="sat" title="Satellite imagery, blended with relief">Satellite</button>
+    </div>
+
+    <div class="m2d-line" id="roadsStyleRow" style="margin-top:9px">
+      <label for="roadsStyle">Style</label>
+      <select id="roadsStyle">
+        <option value="light">Carto light</option>
+        <option value="osm">OpenStreetMap</option>
+        <option value="topo">OpenTopoMap</option>
+        <option value="dark">Carto dark</option>
+      </select>
+    </div>
+
+    <div class="slider only2d" id="mixRow" style="margin-top:10px">
+      <div class="lab"><span>Relief mix</span><b id="mapMixVal">100%</b></div>
+      <input id="mapMix" type="range" min="0" max="100" step="5" value="100">
+      <div class="hint">0% = plain map, 100% = relief only. In between, both show through.</div>
+    </div>
+
     <div class="slider" style="margin-top:10px">
       <div class="lab"><span>Sun direction</span><b id="sunAzVal">315°</b></div>
       <input id="sunAz" type="range" min="0" max="359" step="5" value="315">

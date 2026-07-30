@@ -37,13 +37,29 @@ const state = {
   mode: '2d',
   lon: HOME_DEFAULT.lon, lat: HOME_DEFAULT.lat, zoom: 14,
   ex2d: 6, ex3d: 4,
-  basemap: 'light',
+  basemap: 'light',           // resolved provider actually sent to the view modules
+  mapType: 'roads',           // 'none' | 'roads' | 'sat' — what the shell UI shows
+  roadsStyle: 'light',        // provider used when mapType is 'roads', and by the 3D drape
+  reliefMix: 1,               // 0..1 — remembered even while mapType is 'none' and the slider is hidden
   layers: {hillshade: true, multi: false, gradient: true, hypso: false, contours: false},
   sunAz: 315, sunAlt: 45,
   extentKm: 12,
   units: 'metric',
   home: {...HOME_DEFAULT},
 };
+
+const ROADS_STYLES = new Set(['light', 'osm', 'topo', 'dark']);
+
+// state.basemap is the resolved value the view modules actually consume; mapType +
+// roadsStyle are what the "Map type" UI shows. Keep the former derived from the latter.
+function resolveBasemap() {
+  return state.mapType === 'none' ? 'none' : state.mapType === 'sat' ? 'sat' : state.roadsStyle;
+}
+// 3D never sees 'none' — a bare, untextured terrain slab was not asked for, and the
+// module was not built or tested for it. It keeps showing the last real map style.
+function resolveBasemap3d() {
+  return state.mapType === 'sat' ? 'sat' : state.roadsStyle;
+}
 
 function loadState() {
   try {
@@ -61,7 +77,22 @@ function loadState() {
   state.ex2d = num('ex2d', state.ex2d);
   state.ex3d = num('ex3d', state.ex3d);
   if (h.get('m') === '3d' || h.get('m') === '2d') state.mode = h.get('m');
-  if (h.get('b')) state.basemap = h.get('b');
+
+  // mt/rs/mix are the current scheme; a bare b= (URL) or state.basemap (localStorage,
+  // merged above) is an older link/save from before this feature and gets inferred.
+  if (!h.get('mt')) {
+    const b = h.get('b') || state.basemap;
+    if (b) {
+      state.mapType = b === 'none' ? 'none' : b === 'sat' ? 'sat' : 'roads';
+      if (ROADS_STYLES.has(b)) state.roadsStyle = b;
+    }
+  }
+  if (h.get('mt')) state.mapType = h.get('mt');
+  if (h.get('rs') && ROADS_STYLES.has(h.get('rs'))) state.roadsStyle = h.get('rs');
+  if (!['none', 'roads', 'sat'].includes(state.mapType)) state.mapType = 'roads';
+  if (!ROADS_STYLES.has(state.roadsStyle)) state.roadsStyle = 'light';
+  state.reliefMix = Math.min(1, Math.max(0, num('mix', state.reliefMix)));
+  state.basemap = resolveBasemap();
 }
 
 let saveTimer = null;
@@ -72,7 +103,7 @@ function saveState() {
     const h = new URLSearchParams({
       m: state.mode, lat: state.lat.toFixed(5), lon: state.lon.toFixed(5),
       z: String(Math.round(state.zoom)), ex2d: String(state.ex2d), ex3d: String(state.ex3d),
-      b: state.basemap,
+      mt: state.mapType, rs: state.roadsStyle, mix: state.reliefMix.toFixed(2),
     });
     history.replaceState(null, '', `#${h}`);
   }, 400);
@@ -95,6 +126,8 @@ async function get2d() {
         saveState();
       },
     });
+    // reliefMix isn't part of create2D's constructor read, unlike basemap/layers/sun
+    map2d.setOptions({reliefOpacity: state.mapType === 'none' ? 1 : state.reliefMix});
     return map2d;
   })().catch((e) => {
     load2dPromise = null;
@@ -116,6 +149,9 @@ async function get3d() {
         saveState();
       },
     });
+    // create3D reads state.basemap verbatim at construction, which may be 'none' if
+    // that was the restored 2D map type — 3D has no such mode, so correct it here.
+    if (state.mapType === 'none') view3d.setOptions({basemap: resolveBasemap3d()});
     return view3d;
   })().catch((e) => {
     load3dPromise = null;
@@ -342,14 +378,55 @@ function wire() {
   bindLayer('lyHypso', 'hypso');
   bindLayer('lyContours', 'contours');
 
-  const bm = $('basemap');
-  bm.value = state.basemap;
-  bm.onchange = () => {
-    state.basemap = bm.value;
+  // ---- map type: none / roads / satellite, plus the roads style and the crossfade ----
+  const roadsStyleSel = $('roadsStyle');
+  const mixSlider = $('mapMix');
+
+  function syncMapTypeUI() {
+    document.querySelectorAll('#mapType button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.type === state.mapType));
+    $('roadsStyleRow').style.display = state.mapType === 'roads' ? '' : 'none';
+    $('mixRow').style.display = state.mapType === 'none' ? 'none' : '';
+  }
+
+  function pushBasemap() {
+    state.basemap = resolveBasemap();
     map2d?.setOptions({basemap: state.basemap});
-    view3d?.setOptions({basemap: state.basemap});
+    view3d?.setOptions({basemap: resolveBasemap3d()});
+    // nothing to mix against with no map — force relief fully on without touching the
+    // remembered slider value, so it is right where the user left it if they come back
+    map2d?.setOptions({reliefOpacity: state.mapType === 'none' ? 1 : state.reliefMix});
+  }
+
+  document.querySelectorAll('#mapType button').forEach((btn) => {
+    btn.onclick = () => {
+      if (btn.dataset.type === state.mapType) return;
+      state.mapType = btn.dataset.type;
+      syncMapTypeUI();
+      pushBasemap();
+      saveState();
+    };
+  });
+
+  roadsStyleSel.value = state.roadsStyle;
+  roadsStyleSel.onchange = () => {
+    state.roadsStyle = roadsStyleSel.value;
+    pushBasemap();
     saveState();
   };
+
+  mixSlider.value = Math.round(state.reliefMix * 100);
+  $('mapMixVal').textContent = `${mixSlider.value}%`;
+  paintRange(mixSlider);
+  mixSlider.addEventListener('input', () => {
+    state.reliefMix = +mixSlider.value / 100;
+    $('mapMixVal').textContent = `${mixSlider.value}%`;
+    paintRange(mixSlider);
+    if (state.mapType !== 'none') map2d?.setOptions({reliefOpacity: state.reliefMix});
+  });
+  mixSlider.addEventListener('change', saveState);   // persist once, on release
+
+  syncMapTypeUI();
 
   for (const [id, key, fmt] of [['sunAz', 'sunAz', (v) => `${v}°`],
                                 ['sunAlt', 'sunAlt', (v) => `${v}°`]]) {
