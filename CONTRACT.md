@@ -177,8 +177,13 @@ export const _cacheStats;                          // {tiles, inflight, failed}
 ```js
 export function create2D({container, state, onStateChange});
 //   -> {show(), hide(), setExaggeration(z), setOptions(partial), setView(lon, lat, zoom),
-//       getBounds(), getMap(), invalidate()}
+//       getBounds(), getMap(), invalidate(), setUserLocation(loc | null)}
 ```
+
+`setUserLocation({lat, lon, accuracy, heading} | null)` — added for live device-location tracking
+(v0.2, Android). Draws/updates a pulsing dot + true-radius accuracy circle; `null` removes it.
+Owned and called by the shell (`app.js`), which runs the actual `watchPosition` — this method
+only ever touches the map's own overlay, never geolocation itself.
 
 A Leaflet map in `container` (`#map2d`), basemap `L.tileLayer` underneath, plus a custom
 `L.GridLayer` subclass that paints relief per tile onto its own canvas:

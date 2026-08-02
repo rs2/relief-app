@@ -33,3 +33,43 @@
    make sure a plain map keeps the grab cursor */
 .leaflet-container.leaflet-grab { cursor: grab; }
 .leaflet-container.leaflet-dragging { cursor: grabbing; }
+
+/* ---------- live "you are here" dot ----------
+   Three siblings sharing the same 40x40 box, so rotating the heading cone around
+   its own natural centre (the CSS default) lands exactly on the dot's centre —
+   no manual transform-origin math needed. */
+.m2d-userdot-wrap { position: relative; width: 40px; height: 40px; pointer-events: none; }
+.m2d-userdot-pulse, .m2d-userheading { position: absolute; inset: 0; }
+
+.m2d-userdot-pulse {
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: .35;
+  animation: m2d-pulse 2.2s ease-out infinite;
+}
+@keyframes m2d-pulse {
+  0%   { transform: scale(.4); opacity: .45; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* device-heading cone: a soft triangle pointing "north" (up) before rotation;
+   JS sets transform: rotate(Ndeg) and opacity (hidden when heading is unknown) */
+.m2d-userheading { opacity: 0; transition: opacity .2s; }
+.m2d-userheading::before {
+  content: '';
+  position: absolute; left: 50%; top: 3px; margin-left: -8px;
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 13px solid rgba(79, 209, 197, .55);   /* --accent, literal (see map2d.js) */
+}
+
+.m2d-userdot {
+  position: absolute; left: 50%; top: 50%; width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .5);
+}

@@ -180,6 +180,7 @@ export function create2D({container, state = {}, onStateChange} = {}) {
   let hLut = null, gLut = null, img = null;
   let hidden = false, useDirect = NATIVE || !/^https?:$/.test(location.protocol);
   let base = null, relief = null, scaleCtl = null;
+  let userMarker = null, userCircle = null, userHeadingEl = null;
 
   // ---- colour lookup tables (per-pixel calls into shade.js would allocate 65k arrays/tile) ----
   function hypsoLut() {
@@ -549,6 +550,47 @@ export function create2D({container, state = {}, onStateChange} = {}) {
   buildBase();
   buildRelief();
 
+  // ---- live "you are here" dot: pulsing marker + true-radius accuracy circle ----
+  // Updated in place on every fix (setLatLng / direct DOM transform) rather than rebuilt,
+  // so a watchPosition stream moving several times a second never flickers or re-lays-out.
+  const USER_ICON = L.divIcon({
+    className: 'm2d-userdot-wrap', iconSize: [40, 40], iconAnchor: [20, 20],
+    html: '<div class="m2d-userdot-pulse"></div><div class="m2d-userheading"></div>' +
+          '<div class="m2d-userdot"></div>',
+  });
+  function setUserLocation(loc) {
+    if (!loc) {
+      if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+      if (userCircle) { map.removeLayer(userCircle); userCircle = null; }
+      userHeadingEl = null;
+      return;
+    }
+    const {lat, lon, accuracy, heading} = loc;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    if (!userMarker) {
+      userMarker = L.marker([lat, lon], {
+        icon: USER_ICON, interactive: false, keyboard: false, zIndexOffset: 1000,
+      }).addTo(map);
+      userHeadingEl = userMarker.getElement()?.querySelector('.m2d-userheading') || null;
+    } else {
+      userMarker.setLatLng([lat, lon]);
+    }
+    if (userHeadingEl) {
+      userHeadingEl.style.opacity = Number.isFinite(heading) ? '1' : '0';
+      if (Number.isFinite(heading)) userHeadingEl.style.transform = `rotate(${heading}deg)`;
+    }
+    const r = Number.isFinite(accuracy) ? Math.max(1, accuracy) : 25;
+    if (!userCircle) {
+      userCircle = L.circle([lat, lon], {
+        radius: r, interactive: false, weight: 1,
+        color: '#4fd1c5', fillColor: '#4fd1c5', fillOpacity: 0.12,   // --accent, literal:
+      }).addTo(map);                             // Leaflet sets this as a raw SVG attribute,
+                                                   // not a style prop, so var() can't be trusted
+    } else {
+      userCircle.setLatLng([lat, lon]).setRadius(r);
+    }
+  }
+
   // ---- hover readout: elevation + true local gradient under the cursor ----
   let hoverLL = null, hoverRaf = 0;
   function readout() {
@@ -762,6 +804,7 @@ export function create2D({container, state = {}, onStateChange} = {}) {
                   {animate: false});
     },
     getBounds() { return map.getBounds(); },
+    setUserLocation,
     getMap() { return map; },
     invalidate() {
       map.invalidateSize(false);

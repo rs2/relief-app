@@ -1,4 +1,4 @@
-# Relief — exaggerated hills for cyclists
+# Bike Terrain — exaggerated hills for cyclists
 
 Ordinary online maps make everywhere look flat. This one lets you crank the vertical
 relief until the hills actually read, in two modes:

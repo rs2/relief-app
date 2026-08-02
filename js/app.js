@@ -190,6 +190,7 @@ async function setMode(mode) {
     view3d?.hide();
     const m = await get2d();
     m.show(); m.invalidate();
+    if (tracking && lastFix) m.setUserLocation(lastFix);  // dot went stale while in 3D
   } else {
     map2d?.hide();
     window.reliefStatus('building terrain…');
@@ -292,7 +293,7 @@ async function buildLegend() {
   }).join('');
 }
 
-// ---------- search + geolocate ----------
+// ---------- search ----------
 let searchAbort = null;
 async function doSearch() {
   const q = $('search').value.trim();
@@ -341,34 +342,67 @@ function goTo(lon, lat, zoom = state.zoom) {
   saveState();
 }
 
-async function geolocate() {
+// ---------- live location: pulsing dot, Google-Maps style ----------
+// One button, toggled: first press asks permission, centres the map on the first
+// fix, and starts a live watch; second press stops it and clears the dot.
+let tracking = false, watchId = null, gotFirstFix = false, lastFix = null;
+
+async function ensureLocationPermission() {
+  if (!NATIVE) return true;      // the browser handles its own consent prompt inline
+  let status = await Geolocation.checkPermissions();
+  if (status.location === 'granted' || status.coarseLocation === 'granted') return true;
+  status = await Geolocation.requestPermissions();
+  return status.location === 'granted' || status.coarseLocation === 'granted';
+}
+
+function onFix(lat, lon, accuracy, heading) {
+  lastFix = {lat, lon, accuracy, heading};
+  if (state.mode === '2d') map2d?.setUserLocation(lastFix);
+  if (!gotFirstFix) { gotFirstFix = true; goTo(lon, lat, 14); }
+  window.reliefStatus('tracking your location');
+}
+
+function stopTracking() {
+  if (watchId != null) {
+    if (NATIVE) Geolocation.clearWatch({id: watchId});
+    else navigator.geolocation.clearWatch(watchId);
+  }
+  watchId = null; tracking = false; gotFirstFix = false; lastFix = null;
+  map2d?.setUserLocation(null);
+  $('locate').classList.remove('on');
+  window.reliefStatus('');
+}
+
+async function startTracking() {
+  window.reliefStatus('locating…');
+  const ok = await ensureLocationPermission();
+  if (!ok) { window.reliefStatus('location permission denied', true); return; }
+  tracking = true;
+  $('locate').classList.add('on');
   if (NATIVE) {
     // plain navigator.geolocation needs the host app to implement WebView's
     // onGeolocationPermissionsShowPrompt, which Capacitor's bridge doesn't — the
     // native plugin talks to Android's location APIs directly instead.
-    window.reliefStatus('locating…');
-    try {
-      let status = await Geolocation.checkPermissions();
-      if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
-        status = await Geolocation.requestPermissions();
-        if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
-          throw new Error('permission denied');
-        }
-      }
-      const pos = await Geolocation.getCurrentPosition({enableHighAccuracy: true, timeout: 10000});
-      goTo(pos.coords.longitude, pos.coords.latitude, 14);
-      window.reliefStatus('located');
-    } catch (e) {
-      window.reliefStatus(`location denied: ${e.message}`, true);
-    }
+    watchId = await Geolocation.watchPosition({enableHighAccuracy: true, timeout: 10000},
+      (pos, err) => {
+        if (err) { window.reliefStatus(`location error: ${err.message}`, true); return; }
+        onFix(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.heading);
+      });
     return;
   }
-  if (!navigator.geolocation) { window.reliefStatus('no geolocation in this browser', true); return; }
-  window.reliefStatus('locating…');
-  navigator.geolocation.getCurrentPosition(
-    (p) => { goTo(p.coords.longitude, p.coords.latitude, 14); window.reliefStatus('located'); },
-    (e) => window.reliefStatus(`location denied: ${e.message}`, true),
-    {enableHighAccuracy: true, timeout: 10000});
+  if (!navigator.geolocation) {
+    window.reliefStatus('no geolocation in this browser', true);
+    tracking = false; $('locate').classList.remove('on');
+    return;
+  }
+  watchId = navigator.geolocation.watchPosition(
+    (p) => onFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.coords.heading),
+    (e) => window.reliefStatus(`location error: ${e.message}`, true),
+    {enableHighAccuracy: true, timeout: 10000, maximumAge: 5000});
+}
+
+function toggleTracking() {
+  if (tracking) stopTracking(); else startTracking();
 }
 
 // ---------- profile dock ----------
@@ -496,7 +530,7 @@ function wire() {
   document.addEventListener('click', (e) => {
     if (!$('searchWrap').contains(e.target)) $('results').classList.remove('open');
   });
-  $('locate').onclick = geolocate;
+  $('locate').onclick = toggleTracking;
 
   $('drawProfile').onclick = toggleDraw;
   $('clearProfile').onclick = () => {

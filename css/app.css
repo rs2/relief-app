@@ -75,6 +75,8 @@ html, body {
   cursor: pointer; padding: 7px 9px; border-radius: 7px; font-size: 14px; line-height: 1;
 }
 #searchWrap button:hover, .iconbtn:hover { color: var(--accent); background: #ffffff0d; }
+.iconbtn.on { color: #05231f; background: var(--accent); }
+.iconbtn.on:hover { color: #05231f; background: var(--accent); }
 
 #results {
   position: absolute; top: calc(100% + 6px); left: 0; min-width: 260px; max-width: 380px;
