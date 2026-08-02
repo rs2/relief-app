@@ -3,6 +3,9 @@
 // that three.js never costs anything until the 3D view is actually opened, and so
 // one broken module cannot blank the whole app.
 
+import {NATIVE} from './platform.js';
+import {Geolocation} from '@capacitor/geolocation';
+
 const HOME_DEFAULT = {lat: 51.412172, lon: -0.022933};   // user's home (South London)
 const LS_KEY = 'relief-app/state/v1';
 
@@ -298,7 +301,10 @@ async function doSearch() {
   searchAbort?.abort();
   searchAbort = new AbortController();
   try {
-    const r = await fetch(`/geocode?q=${encodeURIComponent(q)}`, {signal: searchAbort.signal});
+    const url = NATIVE
+      ? `https://nominatim.openstreetmap.org/search?format=json&limit=6&q=${encodeURIComponent(q)}`
+      : `/geocode?q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, {signal: searchAbort.signal, headers: NATIVE ? {'Accept-Language': 'en'} : undefined});
     const list = await r.json();
     if (!Array.isArray(list) || !list.length) { window.reliefStatus('nothing found', true); return; }
     showResults(list);
@@ -335,7 +341,28 @@ function goTo(lon, lat, zoom = state.zoom) {
   saveState();
 }
 
-function geolocate() {
+async function geolocate() {
+  if (NATIVE) {
+    // plain navigator.geolocation needs the host app to implement WebView's
+    // onGeolocationPermissionsShowPrompt, which Capacitor's bridge doesn't — the
+    // native plugin talks to Android's location APIs directly instead.
+    window.reliefStatus('locating…');
+    try {
+      let status = await Geolocation.checkPermissions();
+      if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+        status = await Geolocation.requestPermissions();
+        if (status.location !== 'granted' && status.coarseLocation !== 'granted') {
+          throw new Error('permission denied');
+        }
+      }
+      const pos = await Geolocation.getCurrentPosition({enableHighAccuracy: true, timeout: 10000});
+      goTo(pos.coords.longitude, pos.coords.latitude, 14);
+      window.reliefStatus('located');
+    } catch (e) {
+      window.reliefStatus(`location denied: ${e.message}`, true);
+    }
+    return;
+  }
   if (!navigator.geolocation) { window.reliefStatus('no geolocation in this browser', true); return; }
   window.reliefStatus('locating…');
   navigator.geolocation.getCurrentPosition(

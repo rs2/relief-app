@@ -2,7 +2,10 @@
 //
 // Tiles come from the local proxy first (serve.js keeps them on disk, so ground you
 // have already looked at loads instantly and works offline) and fall back to the
-// public S3 bucket, which is CORS-clean, if the proxy is missing or fails.
+// public S3 bucket, which is CORS-clean, if the proxy is missing or fails. Under
+// Capacitor there is no proxy at all, so NATIVE skips straight to the direct URL.
+
+import {NATIVE} from './platform.js';
 
 export const DEM_MAX_Z = 15;          // terrarium has no useful detail above this
 export const TILE_PX = 256;
@@ -149,7 +152,7 @@ export async function getDemTile(z, x, y, signal) {
   if (pending) return pending;
 
   const job = (async () => {
-    const urls = [PROXY_URL(z, x, y), DIRECT_URL(z, x, y)];
+    const urls = NATIVE ? [DIRECT_URL(z, x, y)] : [PROXY_URL(z, x, y), DIRECT_URL(z, x, y)];
     for (let attempt = 0; attempt < 3; attempt++) {
       const url = urls[Math.min(attempt, urls.length - 1)];
       try {

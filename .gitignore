@@ -1,3 +1,4 @@
 tilecache/
 node_modules/
 *.log
+www/

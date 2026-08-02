@@ -21,6 +21,7 @@
 
 import * as dem from './dem.js';
 import * as shade from './shade.js';
+import {NATIVE} from './platform.js';
 
 const TILE = dem.TILE_PX || 256;
 const MAXZ = dem.DEM_MAX_Z || 15;
@@ -177,7 +178,7 @@ export function create2D({container, state = {}, onStateChange} = {}) {
   const recs = new Map();      // tile key -> {data, canvas, slope, contours, …}
   let range = {lo: 0, hi: MIN_SPAN};
   let hLut = null, gLut = null, img = null;
-  let hidden = false, useDirect = !/^https?:$/.test(location.protocol);
+  let hidden = false, useDirect = NATIVE || !/^https?:$/.test(location.protocol);
   let base = null, relief = null, scaleCtl = null;
 
   // ---- colour lookup tables (per-pixel calls into shade.js would allocate 65k arrays/tile) ----
